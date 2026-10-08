@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '../../features/ai/presentation/pages/ai_page.dart';
@@ -5,6 +6,7 @@ import '../../features/assignments/presentation/pages/assignments_page.dart';
 import '../../features/calendar/presentation/pages/calendar_page.dart';
 import '../../features/courses/presentation/pages/courses_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/gpa/presentation/pages/gpa_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 
 class AppShell extends StatefulWidget {
@@ -22,6 +24,7 @@ class _AppShellState extends State<AppShell> {
     CoursesPage(),
     AssignmentsPage(),
     CalendarPage(),
+    GpaPage(),
     AiPage(),
     ProfilePage(),
   ];
@@ -31,6 +34,7 @@ class _AppShellState extends State<AppShell> {
     'Courses',
     'Assignments',
     'Calendar',
+    'GPA Calculator',
     'UniFlow AI',
     'Profile',
   ];
@@ -83,6 +87,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: 'Calendar',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calculate_outlined),
+            selectedIcon: Icon(Icons.calculate),
+            label: 'GPA',
           ),
           NavigationDestination(
             icon: Icon(Icons.auto_awesome_outlined),
