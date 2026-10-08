@@ -26,6 +26,19 @@ class CalendarService {
         .collection('calendar_sources');
   }
 
+  static CollectionReference<Map<String, dynamic>> _assignments(
+    String userId,
+  ) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('assignments');
+  }
+
+  // ---------------------------------------------------------------------------
+  // CALENDAR EVENTS
+  // ---------------------------------------------------------------------------
+
   static Stream<List<CalendarEventModel>> eventsStream(
     String userId,
   ) {
@@ -63,6 +76,10 @@ class CalendarService {
       }).toList();
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // CALENDAR SOURCES
+  // ---------------------------------------------------------------------------
 
   static Stream<List<Map<String, dynamic>>> sourcesStream(
     String userId,
@@ -104,6 +121,99 @@ class CalendarService {
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
+
+  // ---------------------------------------------------------------------------
+  // SAVE CALENDAR EVENT
+  // ---------------------------------------------------------------------------
+
+  static Future<void> saveCalendarEvent({
+    required String userId,
+    required CalendarEventModel event,
+  }) async {
+    await _events(userId).doc(event.id).set({
+      'title': event.title,
+      'description': event.description,
+      'course': event.course,
+      'type': event.type,
+      'startTime': Timestamp.fromDate(event.startTime),
+      'endTime': Timestamp.fromDate(event.endTime),
+      'location': event.location,
+      'source': event.source,
+      'sourceEventId': event.sourceEventId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // ---------------------------------------------------------------------------
+  // SAVE ASSIGNMENT
+  // ---------------------------------------------------------------------------
+
+  static Future<void> saveAssignmentFromCalendar({
+    required String userId,
+    required CalendarEventModel event,
+  }) async {
+    await _assignments(userId).doc(event.id).set({
+      'title': event.title,
+      'course': event.course,
+      'description': event.description,
+      'dueDate': Timestamp.fromDate(event.endTime),
+      'status': 'Pending',
+      'priority': 'Medium',
+      'progress': 0.0,
+      'source': 'moodle',
+      'sourceEventId': event.sourceEventId,
+      'calendarEventId': event.id,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // ---------------------------------------------------------------------------
+  // IMPORT MULTIPLE EVENTS
+  // ---------------------------------------------------------------------------
+
+  static Future<Map<String, int>> importEvents({
+    required String userId,
+    required List<CalendarEventModel> events,
+    required bool importAssignments,
+  }) async {
+    int importedEvents = 0;
+    int importedAssignments = 0;
+
+    for (final event in events) {
+      await saveCalendarEvent(
+        userId: userId,
+        event: event,
+      );
+
+      importedEvents++;
+
+      if (importAssignments && event.type == 'Assignment') {
+        await saveAssignmentFromCalendar(
+          userId: userId,
+          event: event,
+        );
+
+        importedAssignments++;
+      }
+    }
+
+    await _sources(userId).doc('moodle').set({
+      'name': 'FEELS Calendar',
+      'type': 'moodle',
+      'enabled': true,
+      'lastSyncedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return {
+      'events': importedEvents,
+      'assignments': importedAssignments,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // DELETE
+  // ---------------------------------------------------------------------------
 
   static Future<void> deleteCalendarSource({
     required String userId,

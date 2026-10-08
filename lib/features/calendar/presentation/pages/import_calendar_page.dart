@@ -1,7 +1,12 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../data/calendar_ics_parser.dart';
 import '../../data/calendar_service.dart';
+import '../../data/calendar_event_model.dart';
 
 class ImportCalendarPage extends StatefulWidget {
   const ImportCalendarPage({super.key});
@@ -13,23 +18,15 @@ class ImportCalendarPage extends StatefulWidget {
 
 class _ImportCalendarPageState
     extends State<ImportCalendarPage> {
-  final _formKey = GlobalKey<FormState>();
-
-  final _urlController = TextEditingController();
-
-  bool _automaticSync = true;
-
   bool _importAssignments = true;
   bool _importQuizzes = true;
   bool _importOtherActivities = true;
 
-  bool _isSaving = false;
+  bool _isImporting = false;
 
-  @override
-  void dispose() {
-    _urlController.dispose();
-    super.dispose();
-  }
+  PlatformFile? _selectedFile;
+
+  List<CalendarEventModel> _previewEvents = [];
 
   @override
   Widget build(BuildContext context) {
@@ -46,46 +43,45 @@ class _ImportCalendarPageState
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                _buildHeroCard(),
-                const SizedBox(height: 20),
-                _buildUrlSection(),
-                const SizedBox(height: 20),
-                _buildImportOptions(),
-                const SizedBox(height: 20),
-                _buildSecurityNotice(),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton.icon(
-                    onPressed:
-                        _isSaving ? null : _importCalendar,
-                    icon: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.cloud_download),
-                    label: Text(
-                      _isSaving
-                          ? 'Connecting...'
-                          : 'Import Calendar',
-                    ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              _buildHeroCard(),
+              const SizedBox(height: 20),
+              _buildFilePickerCard(),
+              const SizedBox(height: 20),
+              _buildImportOptions(),
+              const SizedBox(height: 20),
+              _buildHowItWorks(),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed:
+                      _isImporting ? null : _importCalendar,
+                  icon: _isImporting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.upload_file,
+                        ),
+                  label: Text(
+                    _isImporting
+                        ? 'Importing...'
+                        : 'Import Calendar',
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -103,7 +99,8 @@ class _ImportCalendarPageState
             Color(0xFF1D4ED8),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
       ),
       child: const Column(
         crossAxisAlignment:
@@ -116,7 +113,7 @@ class _ImportCalendarPageState
           ),
           SizedBox(height: 14),
           Text(
-            'Connect your university calendar',
+            'Import your university calendar',
             style: TextStyle(
               color: Colors.white,
               fontSize: 21,
@@ -125,9 +122,10 @@ class _ImportCalendarPageState
           ),
           SizedBox(height: 8),
           Text(
-            'UniFlow can automatically organize your '
-            'assignments, quizzes, exams and other '
-            'academic activities.',
+            'Download your FEELS/Moodle calendar '
+            'as an .ics file and import it into UniFlow. '
+            'Your academic events can then appear in '
+            'your UniFlow calendar and Tasks.',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -139,12 +137,13 @@ class _ImportCalendarPageState
     );
   }
 
-  Widget _buildUrlSection() {
+  Widget _buildFilePickerCard() {
     return Card(
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -153,7 +152,7 @@ class _ImportCalendarPageState
               CrossAxisAlignment.start,
           children: [
             const Text(
-              'Calendar URL',
+              'FEELS Calendar File',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
@@ -162,45 +161,112 @@ class _ImportCalendarPageState
             ),
             const SizedBox(height: 6),
             const Text(
-              'Paste the iCalendar URL provided by FEELS/Moodle.',
+              'Select the .ics calendar file downloaded '
+              'from FEELS/Moodle.',
               style: TextStyle(
                 fontSize: 13,
                 color: Color(0xFF64748B),
               ),
             ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _urlController,
-              keyboardType:
-                  TextInputType.url,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText:
-                    'https://feels.pdn.ac.lk/...',
-                prefixIcon:
-                    Icon(Icons.link),
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color:
+                    const Color(0xFFF8FAFC),
+                borderRadius:
+                    BorderRadius.circular(14),
+                border: Border.all(
+                  color:
+                      const Color(0xFFE2E8F0),
+                ),
               ),
-              validator: (value) {
-                final url =
-                    value?.trim() ?? '';
-
-                if (url.isEmpty) {
-                  return 'Please enter your calendar URL.';
-                }
-
-                final uri = Uri.tryParse(url);
-
-                if (uri == null ||
-                    !uri.hasScheme ||
-                    !uri.hasAuthority) {
-                  return 'Please enter a valid calendar URL.';
-                }
-
-                return null;
-              },
+              child: Column(
+                children: [
+                  Icon(
+                    _selectedFile == null
+                        ? Icons
+                            .insert_drive_file_outlined
+                        : Icons
+                            .check_circle_outline,
+                    size: 42,
+                    color: _selectedFile == null
+                        ? const Color(
+                            0xFF64748B,
+                          )
+                        : const Color(
+                            0xFF16A34A,
+                          ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _selectedFile == null
+                        ? 'No calendar file selected'
+                        : _selectedFile!.name,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight:
+                          FontWeight.w600,
+                      color:
+                          Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _isImporting
+                            ? null
+                            : _pickCalendarFile,
+                    icon: const Icon(
+                      Icons.folder_open,
+                    ),
+                    label: Text(
+                      _selectedFile == null
+                          ? 'Select .ics File'
+                          : 'Choose Another File',
+                    ),
+                  ),
+                ],
+              ),
             ),
+            if (_previewEvents.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color:
+                      const Color(0xFFEFF6FF),
+                  borderRadius:
+                      BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.event_available,
+                      color:
+                          Color(0xFF2563EB),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${_previewEvents.length} '
+                        'calendar events detected',
+                        style: const TextStyle(
+                          color:
+                              Color(0xFF1E40AF),
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -212,7 +278,8 @@ class _ImportCalendarPageState
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -228,26 +295,25 @@ class _ImportCalendarPageState
                 color: Color(0xFF0F172A),
               ),
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Choose which types of events should be '
+              'imported.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+              ),
+            ),
             const SizedBox(height: 12),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
+            CheckboxListTile(
+              contentPadding:
+                  EdgeInsets.zero,
               title: const Text(
-                'Automatic synchronization',
+                'Assignments',
               ),
               subtitle: const Text(
-                'Keep your UniFlow calendar updated automatically.',
+                'Add assignment events to Tasks.',
               ),
-              value: _automaticSync,
-              onChanged: (value) {
-                setState(() {
-                  _automaticSync = value;
-                });
-              },
-            ),
-            const Divider(),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Assignments'),
               value: _importAssignments,
               onChanged: (value) {
                 setState(() {
@@ -257,8 +323,14 @@ class _ImportCalendarPageState
               },
             ),
             CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Quizzes'),
+              contentPadding:
+                  EdgeInsets.zero,
+              title: const Text(
+                'Quizzes',
+              ),
+              subtitle: const Text(
+                'Import quiz events into Calendar.',
+              ),
               value: _importQuizzes,
               onChanged: (value) {
                 setState(() {
@@ -268,11 +340,17 @@ class _ImportCalendarPageState
               },
             ),
             CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
+              contentPadding:
+                  EdgeInsets.zero,
               title: const Text(
                 'Other activities',
               ),
-              value: _importOtherActivities,
+              subtitle: const Text(
+                'Import lectures, labs, exams and '
+                'other events.',
+              ),
+              value:
+                  _importOtherActivities,
               onChanged: (value) {
                 setState(() {
                   _importOtherActivities =
@@ -286,14 +364,15 @@ class _ImportCalendarPageState
     );
   }
 
-  Widget _buildSecurityNotice() {
+  Widget _buildHowItWorks() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFFF0FDF4),
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFFED7AA),
+          color: const Color(0xFFBBF7D0),
         ),
       ),
       child: const Row(
@@ -302,18 +381,17 @@ class _ImportCalendarPageState
         children: [
           Icon(
             Icons.security_outlined,
-            color: Color(0xFFEA580C),
+            color: Color(0xFF16A34A),
           ),
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Your calendar URL may contain a private '
-              'authentication token. UniFlow will handle '
-              'the connection securely through the backend. '
-              'Do not share your calendar URL with others.',
+              'Your calendar file is processed locally '
+              'by UniFlow. No FEELS calendar URL or '
+              'authentication token is stored by the app.',
               style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF9A3412),
+                color: Color(0xFF166534),
                 height: 1.45,
               ),
             ),
@@ -323,8 +401,75 @@ class _ImportCalendarPageState
     );
   }
 
+  Future<void> _pickCalendarFile() async {
+    try {
+      final PlatformFile? file =
+          await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['ics'],
+      );
+
+      if (file == null) {
+        return;
+      }
+
+      final bytes =
+          await file.readAsBytes();
+
+      final String content =
+          utf8.decode(bytes);
+
+      final events =
+          CalendarIcsParser.parse(content);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedFile = file;
+        _previewEvents = events;
+      });
+
+      if (events.isEmpty) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No calendar events were found in this file.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not read the calendar file: $e',
+          ),
+          duration:
+              const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
   Future<void> _importCalendar() async {
-    if (!_formKey.currentState!.validate()) {
+    if (_selectedFile == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select an .ics calendar file first.',
+          ),
+        ),
+      );
+
       return;
     }
 
@@ -332,60 +477,114 @@ class _ImportCalendarPageState
         FirebaseAuth.instance.currentUser;
 
     if (user == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please sign in before importing your calendar.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    if (_previewEvents.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No calendar events are available to import.',
+          ),
+        ),
+      );
+
       return;
     }
 
     setState(() {
-      _isSaving = true;
+      _isImporting = true;
     });
 
     try {
-      /*
-       * IMPORTANT:
-       *
-       * At this stage we only register the calendar
-       * source in Firestore.
-       *
-       * The actual FEELS URL will NOT be stored here.
-       *
-       * In the next stage, Firebase Cloud Functions
-       * will securely store/use the URL and download
-       * the iCalendar feed.
-       */
+      final List<CalendarEventModel>
+          eventsToImport = [];
 
-      await CalendarService.createCalendarSource(
+      for (final event in _previewEvents) {
+        if (event.type == 'Assignment') {
+          if (_importAssignments) {
+            eventsToImport.add(event);
+          }
+        } else if (event.type == 'Quiz') {
+          if (_importQuizzes) {
+            eventsToImport.add(event);
+          }
+        } else {
+          if (_importOtherActivities) {
+            eventsToImport.add(event);
+          }
+        }
+      }
+
+      if (eventsToImport.isEmpty) {
+        throw Exception(
+          'No events match your selected import options.',
+        );
+      }
+
+      final result =
+          await CalendarService.importEvents(
         userId: user.uid,
-        name: 'FEELS Calendar',
-        type: 'moodle',
+        events: eventsToImport,
+        importAssignments:
+            _importAssignments,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        _isSaving = false;
+        _isImporting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      final int importedEvents =
+          result['events'] ?? 0;
+
+      final int importedAssignments =
+          result['assignments'] ?? 0;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
           content: Text(
-            'Calendar source connected. Automatic import will be enabled in the next step.',
+            'Calendar imported successfully.\n'
+            '$importedEvents events • '
+            '$importedAssignments assignments added to Tasks.',
           ),
+          duration:
+              const Duration(seconds: 6),
         ),
       );
 
       Navigator.pop(context);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        _isSaving = false;
+        _isImporting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            'Unable to connect calendar: $e',
+            'Calendar import failed: $e',
           ),
+          duration:
+              const Duration(seconds: 7),
         ),
       );
     }
