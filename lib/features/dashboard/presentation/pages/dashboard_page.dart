@@ -92,13 +92,6 @@ class DashboardPage extends StatelessWidget {
                   icon: Icons.school_outlined,
                 ),
 
-                const SizedBox(height: 16),
-
-                const _StatCard(
-                  title: 'Attendance',
-                  value: '87%',
-                  icon: Icons.event_available_outlined,
-                ),
 
                 const SizedBox(height: 16),
 
