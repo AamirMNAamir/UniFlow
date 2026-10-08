@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/ai/presentation/pages/ai_page.dart';
 import '../../features/assignments/presentation/pages/assignments_page.dart';
+import '../../features/calendar/presentation/pages/calendar_page.dart';
 import '../../features/courses/presentation/pages/courses_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -20,6 +21,7 @@ class _AppShellState extends State<AppShell> {
     DashboardPage(),
     CoursesPage(),
     AssignmentsPage(),
+    CalendarPage(),
     AiPage(),
     ProfilePage(),
   ];
@@ -28,6 +30,7 @@ class _AppShellState extends State<AppShell> {
     'UniFlow',
     'Courses',
     'Assignments',
+    'Calendar',
     'UniFlow AI',
     'Profile',
   ];
@@ -45,14 +48,14 @@ class _AppShellState extends State<AppShell> {
         actions: [
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.notifications_outlined),
+            icon: const Icon(
+              Icons.notifications_outlined,
+            ),
           ),
           const SizedBox(width: 8),
         ],
       ),
-
       body: _pages[_currentIndex],
-
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -75,6 +78,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment),
             label: 'Tasks',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Calendar',
           ),
           NavigationDestination(
             icon: Icon(Icons.auto_awesome_outlined),
