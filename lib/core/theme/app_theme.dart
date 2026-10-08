@@ -14,7 +14,6 @@ class AppTheme {
       brightness: Brightness.light,
     ),
     scaffoldBackgroundColor: backgroundColor,
-    fontFamily: 'Roboto',
     appBarTheme: const AppBarTheme(
       backgroundColor: backgroundColor,
       foregroundColor: secondaryColor,

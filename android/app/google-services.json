@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "881072123404",
+    "project_id": "uniflow-f4375",
+    "storage_bucket": "uniflow-f4375.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881072123404:android:3ed2dc3f206a5155be8829",
+        "android_client_info": {
+          "package_name": "com.aamir.uniflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQw-o53VcDj5Wpxh83YtCejOWjYVI5_KA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
